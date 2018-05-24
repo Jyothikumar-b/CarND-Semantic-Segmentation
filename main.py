@@ -156,8 +156,8 @@ def run():
 		correct_label = tf.placeholder(tf.int32, [None, None, None, num_classes], name='correct_label')
 		learning_rate = tf.placeholder(tf.float32, name='learning_rate')
 		
-		epochs = 1
-		batch_size = 10
+		epochs = 15
+		batch_size = 2
 		
 		# TODO: Train NN using the train_nn function
 		train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,correct_label, keep_prob, learning_rate)
