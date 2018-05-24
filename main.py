@@ -28,7 +28,7 @@ def load_vgg(sess, vgg_path):
 	vgg_layer7_out_tensor_name = 'layer7_out:0'
 
 	#(Q&A)
-	tf.save_model_loader.load(sess, [vgg_tag], vgg_tag)
+	tf.saved_model.loader.load(sess, [vgg_tag], vgg_path)
 	graph = tf.get_default_graph()
 	w1 = graph.get_tensor_by_name(vgg_input_tensor_name)
 	keep = graph.get_tensor_by_name(vgg_keep_prob_tensor_name)
@@ -51,27 +51,27 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
 	"""
 	# Layer 1 in Decoder
 	# decoding from layer 7 (1x1 conv)
-	decoder1_out = tf.layers.conv2d(vgg_layer7_out, num_classes, 1, padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+	decoder1_out = tf.layers.conv2d(vgg_layer7_out, num_classes, 1, padding='same', kernel_initializer= tf.random_normal_initializer(stddev=0.01), kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
 	# Layer 2 in Decoder
 	# 1. decoding from layer 4 (1x1 conv)
-	decoder2_in1 = tf.layers.conv2d(vgg_layer4_out, num_classes, 1, padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+	decoder2_in1 = tf.layers.conv2d(vgg_layer4_out, num_classes, 1, padding='same', kernel_initializer= tf.random_normal_initializer(stddev=0.01), kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 	# 2. Upsample from decoder 1
-	decoder2_in2 = tf.layers.conv2d_transpose(decoder1_out, num_classes, 4, 2, padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+	decoder2_in2 = tf.layers.conv2d_transpose(decoder1_out, num_classes, 4, 2, padding='same', kernel_initializer= tf.random_normal_initializer(stddev=0.01), kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 	# Result = 1 + 2
 	decoder2_out = tf.add(decoder2_in1, decoder2_in2)
 
 	# Layer 3 in Decoder
 	# decoding from layer 3 (1x1 conv)
-	decoder3_in1 = tf.layers.conv2d(vgg_layer3_out, num_classes, 1, padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+	decoder3_in1 = tf.layers.conv2d(vgg_layer3_out, num_classes, 1, padding='same', kernel_initializer= tf.random_normal_initializer(stddev=0.01), kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 	# Upsample from decoder 2
-	decoder3_in2 = tf.layers.conv2d_transpose(decoder2_out, num_classes, 4, 2, padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+	decoder3_in2 = tf.layers.conv2d_transpose(decoder2_out, num_classes, 4, 2, padding='same', kernel_initializer= tf.random_normal_initializer(stddev=0.01), kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 	# Result = 1 + 2
 	decoder3_out = tf.add(decoder3_in1, decoder3_in2)
 
-	output = tf.layers.conv2d_transpose(decoder3_out, num_classes, 16, 8, padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+	output = tf.layers.conv2d_transpose(decoder3_out, num_classes, 16, 8, padding='same', kernel_initializer= tf.random_normal_initializer(stddev=0.01), kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
-	return decoder3_out
+	return output
 tests.test_layers(layers)
 
 
@@ -117,10 +117,10 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
 	# TODO: Implement function
 	sess.run(tf.global_variables_initializer())
 
-	for epoch in epochs:
+	for epoch in range(epochs):
 		i=1
 		for image,label in get_batches_fn(batch_size):
-			_, loss = sess.run([train_op,cross_entropy_loss], feed_dict={input_image:image , correct_label:correct_label, keep_prob:0.4, learning_rate:learning_rate})
+			_, loss = sess.run([train_op,cross_entropy_loss], feed_dict={input_image:image , correct_label: label, keep_prob:0.4, learning_rate:0.0009})
 			print("Epoch :{}, Batch :{}, loss:{:.3f}".format(epoch+1,i,loss))
 			i=i+1
 		print("----------------------------------------------------------------------------")
@@ -151,15 +151,18 @@ def run():
 		
 		# TODO: Build NN using load_vgg, layers, and optimize function
 		input_image, keep_prob, vgg_layer3_out, vgg_layer4_out, vgg_layer7_out = load_vgg(sess, vgg_path)
-			
+		final_layer = layers(vgg_layer3_out,vgg_layer4_out,vgg_layer7_out,num_classes)
+
+
 		# Initializing placeholder
 		correct_label = tf.placeholder(tf.int32, [None, None, None, num_classes], name='correct_label')
 		learning_rate = tf.placeholder(tf.float32, name='learning_rate')
 		
-		epochs = 15
+		epochs = 25
 		batch_size = 2
 		
 		# TODO: Train NN using the train_nn function
+		logits, train_op, cross_entropy_loss = optimize(final_layer, correct_label, learning_rate, num_classes)
 		train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,correct_label, keep_prob, learning_rate)
 
 		# TODO: Save inference data using helper.save_inference_samples
